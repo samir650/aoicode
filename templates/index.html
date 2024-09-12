@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF to Audio Converter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+        }
+
+        h1 {
+            color: #007bff;
+            font-size: 36px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        form {
+            background-color: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.2);
+            width: 300px;
+            text-align: center;
+        }
+
+        label {
+            font-weight: bold;
+            color: #555;
+        }
+
+        input[type="file"] {
+            margin: 10px 0;
+            width: 100%;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #hint {
+            color: #d9534f;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        #timer-container {
+            margin-top: 20px;
+            position: relative;
+            width: 200px;
+            height: 200px;
+        }
+
+        #circle-background {
+            fill: none;
+            stroke: #e6e6e6;
+            stroke-width: 12;
+        }
+
+        #circle-timer {
+            fill: none;
+            stroke: #d9534f;
+            stroke-width: 12;
+            stroke-linecap: round;
+            stroke-dasharray: 628; /* 2 * Math.PI * 100 (radius) */
+            stroke-dashoffset: 628;
+            transition: stroke-dashoffset 1s linear;
+        }
+
+        #timer-text {
+            font-size: 36px;
+            fill: #007bff;
+            font-weight: bold;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 12px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+
+    <form id="uploadForm">
+        <h1>PDF to Audio Converter</h1>
+        <label for="file">Choose PDF file:</label>
+        <input type="file" name="file" id="file" accept=".pdf" required><br><br>
+        <button type="submit" id="submitButton">Convert to Audio</button>
+        <p id="hint">For faster results, we recommend using smaller PDF files.</p>
+    </form>
+
+    <!-- Timer Circle -->
+    <div id="timer-container">
+        <svg width="200" height="200">
+            <circle id="circle-background" cx="100" cy="100" r="100"></circle>
+            <circle id="circle-timer" cx="100" cy="100" r="100"></circle>
+            <text id="timer-text" x="100" y="110">00:00</text>
+        </svg>
+    </div>
+
+    <footer>
+        &copy; 2024 Your Company. All rights reserved.
+    </footer>
+
+    <script>
+        let interval;
+        let isFileUploaded = false;
+
+        document.getElementById('file').addEventListener('change', function() {
+            isFileUploaded = true;
+        });
+
+        function startTimer() {
+            const circleTimer = document.getElementById('circle-timer');
+            const timerText = document.getElementById('timer-text');
+            const totalOffset = 628; // Full length of the circle's perimeter
+            let currentOffset = 628;
+            let startTime = Date.now();
+
+            interval = setInterval(function () {
+                let elapsedTime = Math.floor((Date.now() - startTime) / 1000); // Time in seconds
+                let minutes = parseInt(elapsedTime / 60, 10);
+                let seconds = parseInt(elapsedTime % 60, 10);
+
+                minutes = minutes < 10 ? "0" + minutes : minutes;
+                seconds = seconds < 10 ? "0" + seconds : seconds;
+
+                timerText.textContent = minutes + ":" + seconds;
+
+                // Update the circle timer to give a visual representation (based on time passed)
+                currentOffset = totalOffset - (elapsedTime * 10); // Adjust this value based on conversion time
+                circleTimer.style.strokeDashoffset = currentOffset;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(interval);
+        }
+
+        document.getElementById('uploadForm').addEventListener('submit', function(event) {
+            event.preventDefault();  // Prevent form submission
+
+            if (isFileUploaded) {
+                const formData = new FormData();
+                formData.append('file', document.getElementById('file').files[0]);
+
+                // Start the timer when the conversion starts
+                startTimer();
+
+                // Use AJAX to submit the form and wait for conversion to complete
+                fetch('/convert/', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.blob())  // Assuming the server returns the audio file as a blob
+                .then(blob => {
+                    // Stop the timer once the conversion is done
+                    stopTimer();
+
+                    // Create a link to download the converted audio file
+                    const downloadLink = document.createElement('a');
+                    const url = window.URL.createObjectURL(blob);
+                    downloadLink.href = url;
+                    downloadLink.download = 'converted_audio.mp3';
+                    document.body.appendChild(downloadLink);
+                    downloadLink.click();
+                    document.body.removeChild(downloadLink);
+
+                    // Reset the timer visually
+                    document.getElementById('timer-text').textContent = "00:00";
+                    document.getElementById('circle-timer').style.strokeDashoffset = 628;  // Reset to full circle
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    stopTimer(); // Stop the timer on error
+                });
+            }
+        });
+    </script>
+
+</body>
+</html>
